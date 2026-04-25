@@ -1,14 +1,14 @@
 description = 'Dex Translator'
 
 dependencies {
-  compile project(':dex-reader')
-  compile project(':dex-ir')
-  compile project(':dex-obfuscator')
-  compile project(':d2j-base-cmd')
-  compile project(':dx')
-//  compile 'org.ow2.asm:asm-debug-all:5.0.3'
-  testCompile project(':d2j-smali')
-  testCompile project(':d2j-jasmin')
-  testCompile project(':ams')
+  api project(':dex-reader')
+  api project(':dex-ir')
+  api project(':dex-obfuscator')
+  api project(':d2j-base-cmd')
+  api project(':dx')
+//  api 'org.ow2.asm:asm-debug-all:5.0.3'
+  testImplementation project(':d2j-smali')
+  testImplementation project(':d2j-jasmin')
+  testImplementation project(':ams')
 }
 

@@ -17,7 +17,9 @@ The Android Studio Plugin version of this project has been developed, it support
 ## Gradle Android Plugin
 This repository now also contains a Gradle Android plugin module for `com.android.application` projects.
 See [GRADLE_ANDROID_PLUGIN_USAGE.md](GRADLE_ANDROID_PLUGIN_USAGE.md) for configuration and task usage.
-Chinese documentation is available at [README_ZH.md](README_ZH.md) and [GRADLE_ANDROID_PLUGIN_USAGE_ZH.md](GRADLE_ANDROID_PLUGIN_USAGE_ZH.md).
+Chinese documentation is available in [README.md](README.md) and [GRADLE_ANDROID_PLUGIN_USAGE_ZH.md](GRADLE_ANDROID_PLUGIN_USAGE_ZH.md).
+Both Groovy DSL and Kotlin DSL examples are documented in the Chinese README and plugin usage guide.
+The current plugin ID is `zym.top.blackobfuscator`.
 
 ## GUI
 The graphical utility based on this project has been developed. More information about it are in [BlackObfuscator-GUI](https://github.com/CodingGay/BlackObfuscator-GUI)

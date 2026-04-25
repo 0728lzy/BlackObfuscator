@@ -2,7 +2,7 @@
 
 ## Plugin ID
 
-`top.niunaijun.blackobfuscator`
+`zym.top.blackobfuscator`
 
 ## Current behavior
 
@@ -11,24 +11,50 @@
 - extracts `classes*.dex`, obfuscates matching dex files, repacks the APK, then runs `zipalign` and `apksigner`
 - outputs a sibling APK with the suffix `-blackobf.apk` by default
 
-## Add to this repository build
+## Recommended integration
 
-The plugin implementation lives in:
+The recommended way is to include this repository as a local included build from your Android app project.
 
-- `blackobfuscator-gradle-plugin`
+### `settings.gradle`
 
-Build it with:
+```groovy
+pluginManagement {
+    includeBuild("../BlackObfuscator")
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+```
 
-```powershell
-.\gradlew :blackobfuscator-gradle-plugin:build
+Then apply the plugin in your app module:
+
+```groovy
+plugins {
+    id 'com.android.application'
+    id 'zym.top.blackobfuscator'
+}
 ```
 
 ## Example consumer usage
 
 ```groovy
-plugins {
-    id 'com.android.application'
-    id 'top.niunaijun.blackobfuscator'
+android {
+    signingConfigs {
+        release {
+            storeFile file("keystore/release.jks")
+            storePassword "123456"
+            keyAlias "release"
+            keyPassword "123456"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
 }
 
 blackObfuscator {

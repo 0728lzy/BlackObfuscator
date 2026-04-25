@@ -2,9 +2,30 @@
 
 ## 插件信息
 
-- 插件 ID：`top.niunaijun.blackobfuscator`
+- 插件 ID：`zym.top.blackobfuscator`
 - 适用对象：`com.android.application`
 - 插件模块：`blackobfuscator-gradle-plugin`
+
+## 兼容性
+
+当前仓库已经验证以下组合可以完成插件模块构建：
+
+| Gradle | JDK | 结果 |
+|---|---|---|
+| `6.9.1` | `11` | 通过 |
+| `8.7` | `17` | 通过 |
+
+本次兼容处理主要包含：
+
+- 将仓库的旧式 `compile` / `testCompile` 升级为新依赖配置
+- 移除 Gradle 8 不兼容的旧 `maven` 插件依赖
+- 将跨模块依赖改为 `api`，保留老工程依赖的传递可见性
+- 将插件实现改为尽量通过反射访问 Android Gradle Plugin API，减少对单一 AGP 版本的硬绑定
+
+说明：
+
+- 这里的“通过”是指当前仓库插件模块可成功构建
+- 具体 app 项目接入时，还需要它自己的 AGP / Gradle / JDK 组合本身是合法的
 
 ## 当前实现能力
 
@@ -38,12 +59,22 @@ gradle :blackobfuscator-gradle-plugin:build
 .\gradlew :blackobfuscator-gradle-plugin:build
 ```
 
+如果你要分别验证两套环境，可以参考：
+
+```powershell
+# Gradle 6 + JDK 11
+gradle-6.9.1\bin\gradle.bat :blackobfuscator-gradle-plugin:build
+
+# Gradle 8 + JDK 17
+gradle-8.7\bin\gradle.bat :blackobfuscator-gradle-plugin:build
+```
+
 ## 在 Android 项目中使用
 
 ```groovy
 plugins {
     id 'com.android.application'
-    id 'top.niunaijun.blackobfuscator'
+    id 'zym.top.blackobfuscator'
 }
 
 blackObfuscator {
@@ -53,6 +84,42 @@ blackObfuscator {
     packageName = "com.example.app"
     // 或者使用 rulesFile = file("blackobfuscator-rules.txt")
     variants = ["release"]
+    outputSuffix = "-blackobf"
+}
+```
+
+### Kotlin DSL 示例
+
+```kotlin
+plugins {
+    id("com.android.application")
+    id("zym.top.blackobfuscator")
+}
+
+android {
+    signingConfigs {
+        create("release") {
+            storeFile = file("keystore/release.jks")
+            storePassword = "123456"
+            keyAlias = "release"
+            keyPassword = "123456"
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+}
+
+blackObfuscator {
+    isEnabled = true
+    isAutoRun = false
+    depth = 1
+    packageName = "com.example.app"
+    // 或者 rulesFile = file("blackobfuscator-rules.txt")
+    variants = mutableListOf("release")
     outputSuffix = "-blackobf"
 }
 ```
@@ -74,6 +141,7 @@ blackObfuscator {
 - `packageName` 和 `rulesFile` 必须二选一
 - 必须存在有效的 Android `signingConfig`
 - 本机需要可用的 Android SDK 和 `build-tools`
+- 插件当前更适合处理 `application` 产出的 APK，不适用于 `library`
 
 ## 手动执行任务
 
@@ -111,7 +179,9 @@ app-release-blackobf.apk
 - Android SDK 可通过 `local.properties` 的 `sdk.dir` 找到
 - 或设置 `ANDROID_SDK_ROOT` / `ANDROID_HOME`
 - `build-tools` 中需要存在 `zipalign` 和 `apksigner`
-- 当前工程建议使用 JDK 11 构建
+- 如果是旧工程，优先使用 `Gradle 6.x + JDK 11`
+- 如果是新工程，优先使用 `Gradle 8.x + JDK 17`
+- 你的 Android 工程自身还需要满足对应 AGP 的官方版本要求
 
 ## 常见问题
 

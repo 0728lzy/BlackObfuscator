@@ -1,5 +1,4 @@
 allprojects  {
-  apply plugin: 'maven'
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   group = 'com.github.CodingGay.BlackObfuscator'
@@ -9,16 +8,14 @@ allprojects  {
 defaultTasks('clean','distZip')
 
 subprojects {
-  apply plugin: 'java'
-  apply plugin: 'maven'
-  sourceCompatibility = 1.8
-  targetCompatibility = 1.8
+  apply plugin: 'java-library'
+  sourceCompatibility = JavaVersion.VERSION_1_8
+  targetCompatibility = JavaVersion.VERSION_1_8
 
   task packageSources(type: Jar) {
-    classifier = 'sources'
+    archiveClassifier.set('sources')
     from sourceSets.main.allSource
   }
-  artifacts.archives packageSources
   repositories {
     google()
     mavenCentral()
@@ -39,8 +36,8 @@ subprojects {
   [compileJava, compileTestJava]*.options.collect {options ->options.encoding = 'UTF-8'}
 
   dependencies {
-    testCompile group: 'junit', name: 'junit', version:'4.11'
-    compile fileTree(dir: 'libs', include: '*.jar')
+    testImplementation group: 'junit', name: 'junit', version:'4.11'
+    api fileTree(dir: 'libs', include: '*.jar')
   }
 
   jar {
