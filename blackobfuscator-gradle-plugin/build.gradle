@@ -1,5 +1,15 @@
+buildscript {
+  repositories {
+    gradlePluginPortal()
+  }
+  dependencies {
+    classpath 'com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:2.1.1'
+  }
+}
+
 apply plugin: 'java-gradle-plugin'
 apply plugin: 'maven-publish'
+apply plugin: 'com.gradle.plugin-publish'
 
 group = 'zym.top.blackobfuscator'
 description = 'BlackObfuscator Gradle plugin for Android APK post-processing'
@@ -20,12 +30,15 @@ dependencies {
 }
 
 gradlePlugin {
+  website = 'https://github.com/0728lzy/BlackObfuscator'
+  vcsUrl = 'https://github.com/0728lzy/BlackObfuscator.git'
   plugins {
     blackObfuscatorPlugin {
       id = 'zym.top.blackobfuscator'
-      implementationClass = 'top.niunaijun.blackobfuscator.gradle.BlackObfuscatorGradlePlugin'
+      implementationClass = 'zym.top.blackobfuscator.gradle.BlackObfuscatorGradlePlugin'
       displayName = 'BlackObfuscator Gradle Plugin'
       description = 'Obfuscate Android APK dex files after assemble and re-sign the output APK.'
+      tags.set(['android', 'apk', 'obfuscation', 'dex'])
     }
   }
 }
@@ -41,6 +54,17 @@ jar {
 }
 
 publishing {
+  repositories {
+    maven {
+      name = 'GitHubPackages'
+      url = uri('https://maven.pkg.github.com/0728lzy/BlackObfuscator')
+      credentials {
+        username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
+        password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
+      }
+    }
+  }
+
   publications.withType(MavenPublication).configureEach {
     pom.withXml {
       def dependenciesNode = asNode().get('dependencies')

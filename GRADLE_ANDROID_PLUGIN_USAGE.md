@@ -36,7 +36,7 @@ If your plugin artifact is hosted in a private Maven repository, replace `mavenL
 ```groovy
 plugins {
     id 'com.android.application'
-    id 'zym.top.blackobfuscator' version '1.0.0'
+    id 'zym.top.blackobfuscator' version '1.0.1'
 }
 ```
 
@@ -52,7 +52,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.0"
+        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.1"
     }
 }
 ```
