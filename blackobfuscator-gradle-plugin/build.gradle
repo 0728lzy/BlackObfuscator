@@ -14,7 +14,8 @@ configurations {
 
 dependencies {
   compileOnly gradleApi()
-  implementation project(':dex-tools')
+  compileOnly project(':dex-tools')
+  implementation 'com.google.guava:guava:31.1-jre'
   bundled project(':dex-tools')
 }
 
@@ -35,6 +36,7 @@ jar {
   from {
     configurations.bundled.collect { it.isDirectory() ? it : zipTree(it) }
   }
+  exclude 'com/google/common/**'
   exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
 }
 
@@ -43,7 +45,14 @@ publishing {
     pom.withXml {
       def dependenciesNode = asNode().get('dependencies')
       dependenciesNode.each { node ->
-        asNode().remove(node)
+        node.children().findAll {
+          it.name() == 'dependency' && it.groupId?.text() == 'com.github.CodingGay.BlackObfuscator'
+        }.each { dependency ->
+          node.remove(dependency)
+        }
+        if (!node.children()) {
+          asNode().remove(node)
+        }
       }
     }
   }

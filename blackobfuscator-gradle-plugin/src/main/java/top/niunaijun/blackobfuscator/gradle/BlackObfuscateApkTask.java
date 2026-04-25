@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -256,15 +257,14 @@ public class BlackObfuscateApkTask extends DefaultTask {
 
         File localProperties = new File(rootDir, "local.properties");
         if (localProperties.isFile()) {
-            try {
-                List<String> lines = Files.readAllLines(localProperties.toPath());
-                for (String line : lines) {
-                    if (line.startsWith("sdk.dir=")) {
-                        String value = line.substring("sdk.dir=".length()).trim().replace("\\\\", "\\");
-                        File file = new File(value);
-                        if (file.isDirectory()) {
-                            return file;
-                        }
+            try (InputStream in = new FileInputStream(localProperties)) {
+                Properties properties = new Properties();
+                properties.load(in);
+                String sdkDirValue = properties.getProperty("sdk.dir");
+                if (sdkDirValue != null) {
+                    File file = new File(sdkDirValue);
+                    if (file.isDirectory()) {
+                        return file;
                     }
                 }
             } catch (IOException ignored) {
