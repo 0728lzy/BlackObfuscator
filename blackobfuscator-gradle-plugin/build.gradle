@@ -1,4 +1,8 @@
 apply plugin: 'java-gradle-plugin'
+apply plugin: 'maven-publish'
+
+group = 'zym.top.blackobfuscator'
+description = 'BlackObfuscator Gradle plugin for Android APK post-processing'
 
 dependencies {
   compileOnly gradleApi()
@@ -10,6 +14,8 @@ gradlePlugin {
     blackObfuscatorPlugin {
       id = 'zym.top.blackobfuscator'
       implementationClass = 'top.niunaijun.blackobfuscator.gradle.BlackObfuscatorGradlePlugin'
+      displayName = 'BlackObfuscator Gradle Plugin'
+      description = 'Obfuscate Android APK dex files after assemble and re-sign the output APK.'
     }
   }
 }

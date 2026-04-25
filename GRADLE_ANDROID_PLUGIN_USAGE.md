@@ -4,23 +4,33 @@
 
 `zym.top.blackobfuscator`
 
-## Current behavior
+## Local Maven coordinates
 
-- supports `com.android.application`
-- runs after `assemble<Variant>` and rewrites the generated APK
-- extracts `classes*.dex`, obfuscates matching dex files, repacks the APK, then runs `zipalign` and `apksigner`
-- outputs a sibling APK with the suffix `-blackobf.apk` by default
+`zym.top.blackobfuscator:blackobfuscator-gradle-plugin:2.1-SNAPSHOT`
+
+## Publish to local Maven
+
+Run this in the repository root:
+
+```powershell
+gradle :blackobfuscator-gradle-plugin:publishToMavenLocal
+```
+
+This publishes:
+
+- the implementation artifact to `mavenLocal()`
+- the plugin marker artifact for the `plugins {}` DSL
 
 ## Recommended integration
 
-The recommended way is to include this repository as a local included build from your Android app project.
+Use `mavenLocal()` and apply the plugin via the modern `plugins {}` DSL.
 
 ### `settings.gradle`
 
 ```groovy
 pluginManagement {
-    includeBuild("../BlackObfuscator")
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
         gradlePluginPortal()
@@ -28,16 +38,40 @@ pluginManagement {
 }
 ```
 
-Then apply the plugin in your app module:
+### `app/build.gradle`
 
 ```groovy
 plugins {
     id 'com.android.application'
-    id 'zym.top.blackobfuscator'
+    id 'zym.top.blackobfuscator' version '2.1-SNAPSHOT'
 }
 ```
 
-## Example consumer usage
+## Alternative `classpath` integration
+
+Root `build.gradle`:
+
+```groovy
+buildscript {
+    repositories {
+        mavenLocal()
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:2.1-SNAPSHOT"
+    }
+}
+```
+
+Then in `app/build.gradle`:
+
+```groovy
+apply plugin: 'com.android.application'
+apply plugin: 'zym.top.blackobfuscator'
+```
+
+## Example configuration
 
 ```groovy
 android {
@@ -68,13 +102,11 @@ blackObfuscator {
 }
 ```
 
-Then run:
+Run:
 
 ```powershell
 .\gradlew blackObfuscateRelease
 ```
-
-If `autoRun = true`, the plugin will attach itself to the selected variant's `assemble<Variant>` task.
 
 ## Requirements
 
