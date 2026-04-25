@@ -46,6 +46,7 @@ public class BlackObfuscatorGradlePlugin implements Plugin<Project> {
         String taskName = "blackObfuscate" + capitalize(variantName);
         String variantDirName = String.valueOf(invoke(variant, "getDirName"));
         VariantSigningInfo signingInfo = extractSigningInfo(variant);
+        String namespace = extractNamespace(project);
 
         TaskProvider<BlackObfuscateApkTask> taskProvider = project.getTasks().register(taskName, BlackObfuscateApkTask.class, task -> {
             task.setGroup("blackobfuscator");
@@ -55,6 +56,7 @@ public class BlackObfuscatorGradlePlugin implements Plugin<Project> {
             task.setVariantDirName(variantDirName);
             task.setProjectBuildDir(project.getBuildDir());
             task.setRootDir(project.getRootDir());
+            task.setNamespace(namespace);
             task.setSigningInfo(signingInfo);
         });
 
@@ -114,6 +116,25 @@ public class BlackObfuscatorGradlePlugin implements Plugin<Project> {
         } catch (Exception e) {
             throw new GradleException("Failed to read signing config for variant " + invoke(variant, "getName"), e);
         }
+    }
+
+    private String extractNamespace(Project project) {
+        Object androidExtension = project.getExtensions().findByName("android");
+        if (androidExtension == null) {
+            return null;
+        }
+
+        try {
+            Object namespace = invoke(androidExtension, "getNamespace");
+            if (namespace instanceof String) {
+                String value = ((String) namespace).trim();
+                if (!value.isEmpty()) {
+                    return value;
+                }
+            }
+        } catch (GradleException ignored) {
+        }
+        return null;
     }
 
     private Object invoke(Object target, String methodName) {

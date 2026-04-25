@@ -14,15 +14,22 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -35,7 +42,9 @@ public class BlackObfuscateApkTask extends DefaultTask {
     private String variantDirName;
     private File projectBuildDir;
     private File rootDir;
+    private String namespace;
     private VariantSigningInfo signingInfo;
+    private static final Pattern PACKAGE_PATTERN = Pattern.compile("(?m)^\\s*package\\s+([A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)*)\\s*;?\\s*$");
 
     @TaskAction
     public void obfuscate() {
@@ -63,9 +72,15 @@ public class BlackObfuscateApkTask extends DefaultTask {
         mkdirs(dexInputDir);
         mkdirs(dexOutputDir);
 
-        Map<String, File> replacementDexMap = extractAndObfuscateDex(inputApk, dexInputDir, dexOutputDir);
+        File mergedRulesFile = null;
+        if (extension.isAutoFilter()) {
+            mergedRulesFile = generateAutoRulesFile(new File(workDir, "filter.txt"));
+            getLogger().lifecycle("BlackObfuscator auto filter: {}", mergedRulesFile.getAbsolutePath());
+        }
+
+        Map<String, File> replacementDexMap = extractAndObfuscateDex(inputApk, dexInputDir, dexOutputDir, mergedRulesFile);
         if (replacementDexMap.isEmpty()) {
-            throw new GradleException("No dex files were obfuscated. Check blackObfuscator.packageName or rulesFile.");
+            throw new GradleException("No dex files were obfuscated. Check blackObfuscator.packageName, rulesFile or autoFilter.");
         }
 
         repackageApk(inputApk, unsignedApk, replacementDexMap);
@@ -81,7 +96,7 @@ public class BlackObfuscateApkTask extends DefaultTask {
         getLogger().lifecycle("BlackObfuscator output: {}", outputApk.getAbsolutePath());
     }
 
-    private Map<String, File> extractAndObfuscateDex(File inputApk, File dexInputDir, File dexOutputDir) {
+    private Map<String, File> extractAndObfuscateDex(File inputApk, File dexInputDir, File dexOutputDir, File autoRulesFile) {
         Map<String, File> replacementDexMap = new HashMap<String, File>();
         List<String> dexEntries = new ArrayList<String>();
         Logger logger = getLogger();
@@ -121,7 +136,7 @@ public class BlackObfuscateApkTask extends DefaultTask {
             args.add("-o");
             args.add(obfuscatedDex.getAbsolutePath());
 
-            File rulesFile = resolveRulesFile();
+            File rulesFile = resolveRulesFile(autoRulesFile);
             if (rulesFile != null) {
                 args.add("-a");
                 args.add(rulesFile.getAbsolutePath());
@@ -348,7 +363,10 @@ public class BlackObfuscateApkTask extends DefaultTask {
         }
     }
 
-    private File resolveRulesFile() {
+    private File resolveRulesFile(File autoRulesFile) {
+        if (autoRulesFile != null) {
+            return autoRulesFile;
+        }
         Object rulesFile = extension.getRulesFile();
         if (rulesFile == null) {
             return null;
@@ -374,17 +392,167 @@ public class BlackObfuscateApkTask extends DefaultTask {
             throw new GradleException("blackObfuscator.depth must be >= 1");
         }
 
-        File rulesFile = resolveRulesFile();
+        File rulesFile = resolveRulesFile(null);
         boolean hasPackage = extension.getPackageName() != null && !extension.getPackageName().trim().isEmpty();
         boolean hasRules = rulesFile != null;
-
-        if (hasPackage == hasRules) {
-            throw new GradleException("Set exactly one of blackObfuscator.packageName or blackObfuscator.rulesFile.");
-        }
-
+        boolean hasAutoFilter = extension.isAutoFilter();
         if (hasRules && !rulesFile.isFile()) {
             throw new GradleException("blackObfuscator.rulesFile does not exist: " + rulesFile.getAbsolutePath());
         }
+
+        if (!hasPackage && !hasAutoFilter && !hasRules) {
+            throw new GradleException("Set at least one of blackObfuscator.packageName, blackObfuscator.rulesFile or blackObfuscator.autoFilter.");
+        }
+
+        if (hasPackage && hasRules) {
+            throw new GradleException("blackObfuscator.packageName cannot be used together with blackObfuscator.rulesFile.");
+        }
+
+        if (hasPackage && hasAutoFilter) {
+            throw new GradleException("blackObfuscator.packageName cannot be used together with blackObfuscator.autoFilter.");
+        }
+
+        if (hasAutoFilter) {
+            String autoFilterNamespace = resolveNamespace();
+            if (autoFilterNamespace == null || autoFilterNamespace.trim().isEmpty()) {
+                throw new GradleException("blackObfuscator.autoFilter requires android.namespace to be configured.");
+            }
+        }
+    }
+
+    private File generateAutoRulesFile(File outputFile) {
+        String autoFilterNamespace = resolveNamespace();
+        Set<String> rules = collectAutoFilterRules(autoFilterNamespace);
+        File configuredRulesFile = resolveRulesFile(null);
+        if (rules.isEmpty() && configuredRulesFile == null) {
+            throw new GradleException("No source packages or files found under namespace " + autoFilterNamespace + " for autoFilter.");
+        }
+
+        File parent = outputFile.getParentFile();
+        if (parent != null) {
+            mkdirs(parent);
+        }
+
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(outputFile), "UTF-8")) {
+            writer.write("# Auto generated by BlackObfuscator\n");
+            writer.write("# namespace: " + autoFilterNamespace + "\n");
+            for (String rule : rules) {
+                writer.write(rule);
+                writer.write('\n');
+            }
+            appendConfiguredRules(writer, configuredRulesFile);
+        } catch (IOException e) {
+            throw new GradleException("Failed to generate auto filter rules file: " + outputFile.getAbsolutePath(), e);
+        }
+        return outputFile;
+    }
+
+    private void appendConfiguredRules(Writer writer, File configuredRulesFile) throws IOException {
+        if (configuredRulesFile == null) {
+            return;
+        }
+
+        writer.write('\n');
+        writer.write("# User rules: ");
+        writer.write(configuredRulesFile.getAbsolutePath());
+        writer.write('\n');
+
+        List<String> lines = Files.readAllLines(configuredRulesFile.toPath());
+        for (String line : lines) {
+            writer.write(line);
+            writer.write('\n');
+        }
+    }
+
+    private Set<String> collectAutoFilterRules(String autoFilterNamespace) {
+        File srcDir = new File(getProject().getProjectDir(), "src");
+        if (!srcDir.isDirectory()) {
+            return Collections.emptySet();
+        }
+
+        Set<String> rules = new LinkedHashSet<String>();
+        List<File> sources = new ArrayList<File>();
+        collectSourceFiles(srcDir, sources);
+
+        for (File source : sources) {
+            String declaredPackage = readDeclaredPackage(source);
+            if (declaredPackage == null || !isNamespaceMatch(declaredPackage, autoFilterNamespace)) {
+                continue;
+            }
+
+            rules.add(declaredPackage);
+
+            String simpleName = source.getName();
+            int dot = simpleName.lastIndexOf('.');
+            if (dot > 0) {
+                simpleName = simpleName.substring(0, dot);
+            }
+            if (!simpleName.isEmpty()) {
+                rules.add(declaredPackage + "." + simpleName);
+            }
+        }
+        return rules;
+    }
+
+    private void collectSourceFiles(File dir, List<File> result) {
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            if (file.isDirectory()) {
+                if ("build".equals(file.getName())) {
+                    continue;
+                }
+                collectSourceFiles(file, result);
+            } else if (isSourceFile(file)) {
+                result.add(file);
+            }
+        }
+    }
+
+    private boolean isSourceFile(File file) {
+        String name = file.getName().toLowerCase(Locale.ROOT);
+        return name.endsWith(".java") || name.endsWith(".kt");
+    }
+
+    private String readDeclaredPackage(File source) {
+        try {
+            String content = new String(Files.readAllBytes(source.toPath()), "UTF-8");
+            Matcher matcher = PACKAGE_PATTERN.matcher(content);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        } catch (IOException ignored) {
+        }
+        return null;
+    }
+
+    private boolean isNamespaceMatch(String packageName, String autoFilterNamespace) {
+        return packageName.equals(autoFilterNamespace) || packageName.startsWith(autoFilterNamespace + ".");
+    }
+
+    private String resolveNamespace() {
+        if (namespace != null && !namespace.trim().isEmpty()) {
+            return namespace.trim();
+        }
+        return readManifestPackage();
+    }
+
+    private String readManifestPackage() {
+        File manifest = new File(getProject().getProjectDir(), "src/main/AndroidManifest.xml");
+        if (!manifest.isFile()) {
+            return null;
+        }
+        try {
+            String content = new String(Files.readAllBytes(manifest.toPath()), "UTF-8");
+            Matcher matcher = Pattern.compile("package\\s*=\\s*\"([^\"]+)\"").matcher(content);
+            if (matcher.find()) {
+                return matcher.group(1).trim();
+            }
+        } catch (IOException ignored) {
+        }
+        return null;
     }
 
     private String buildOutputName(String inputName) {
@@ -497,6 +665,10 @@ public class BlackObfuscateApkTask extends DefaultTask {
 
     public void setRootDir(File rootDir) {
         this.rootDir = rootDir;
+    }
+
+    public void setNamespace(String namespace) {
+        this.namespace = namespace;
     }
 
     public void setSigningInfo(VariantSigningInfo signingInfo) {

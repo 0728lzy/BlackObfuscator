@@ -7,6 +7,7 @@ public class BlackObfuscatorExtension {
 
     private boolean enabled = true;
     private boolean autoRun = false;
+    private boolean autoFilter = false;
     private int depth = 1;
     private String packageName;
     private Object rulesFile;
@@ -27,6 +28,14 @@ public class BlackObfuscatorExtension {
 
     public void setAutoRun(boolean autoRun) {
         this.autoRun = autoRun;
+    }
+
+    public boolean isAutoFilter() {
+        return autoFilter;
+    }
+
+    public void setAutoFilter(boolean autoFilter) {
+        this.autoFilter = autoFilter;
     }
 
     public int getDepth() {
