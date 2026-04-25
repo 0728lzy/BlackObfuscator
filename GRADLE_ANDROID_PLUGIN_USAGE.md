@@ -4,28 +4,17 @@
 
 `zym.top.blackobfuscator`
 
-## Local Maven coordinates
+## Purpose
 
-`zym.top.blackobfuscator:blackobfuscator-gradle-plugin:2.1-SNAPSHOT`
+This plugin is for Android app developers who want to obfuscate dex files in the generated APK after `assemble`.
 
-## Publish to local Maven
+## Recommended usage
 
-Run this in the repository root:
+The documentation below assumes the plugin artifact is already available from your Maven repository setup.
 
-```powershell
-gradle :blackobfuscator-gradle-plugin:publishToMavenLocal
-```
+### Add plugin repositories
 
-This publishes:
-
-- the implementation artifact to `mavenLocal()`
-- the plugin marker artifact for the `plugins {}` DSL
-
-## Recommended integration
-
-Use `mavenLocal()` and apply the plugin via the modern `plugins {}` DSL.
-
-### `settings.gradle`
+`settings.gradle`
 
 ```groovy
 pluginManagement {
@@ -38,7 +27,11 @@ pluginManagement {
 }
 ```
 
-### `app/build.gradle`
+If your plugin artifact is hosted in a private Maven repository, replace `mavenLocal()` with that repository.
+
+### Apply the plugin
+
+`app/build.gradle`
 
 ```groovy
 plugins {
@@ -47,7 +40,7 @@ plugins {
 }
 ```
 
-## Alternative `classpath` integration
+### Alternative `classpath` usage
 
 Root `build.gradle`:
 
@@ -71,7 +64,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'zym.top.blackobfuscator'
 ```
 
-## Example configuration
+### Example configuration
 
 ```groovy
 android {
@@ -102,7 +95,7 @@ blackObfuscator {
 }
 ```
 
-Run:
+### Run
 
 ```powershell
 .\gradlew blackObfuscateRelease

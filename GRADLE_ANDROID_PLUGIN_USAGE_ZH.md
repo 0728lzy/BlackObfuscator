@@ -3,27 +3,15 @@
 ## 插件信息
 
 - 插件 ID：`zym.top.blackobfuscator`
-- 本地 Maven 坐标：`zym.top.blackobfuscator:blackobfuscator-gradle-plugin:2.1-SNAPSHOT`
 - 适用对象：`com.android.application`
 
-## 发布到本地 Maven
+## 使用说明
 
-在仓库根目录执行：
+下面的说明只面向插件使用者，默认插件产物已经能从你的 Maven 仓库中解析到。
 
-```powershell
-gradle :blackobfuscator-gradle-plugin:publishToMavenLocal
-```
+### 1. 在项目中加入插件仓库
 
-发布后会生成两类产物：
-
-- 插件实现产物：用于 `classpath`
-- 插件 marker 产物：用于 `plugins {}` DSL
-
-## 推荐接入方式
-
-推荐先发布到 `mavenLocal()`，再通过 `plugins {}` 方式应用。
-
-### 1. 在 app 工程里加入 `mavenLocal()`
+如果你的插件产物在本地 Maven，就加入 `mavenLocal()`；如果在私服，就改成对应私服地址。
 
 Groovy DSL，`settings.gradle`：
 
@@ -69,7 +57,7 @@ dependencyResolutionManagement {
 }
 ```
 
-### 2. 在 app 模块中应用插件
+### 2. 应用插件
 
 Groovy DSL，`app/build.gradle`：
 
@@ -89,9 +77,7 @@ plugins {
 }
 ```
 
-## `buildscript classpath` 方式
-
-如果你明确想走 `classpath` 方式，也可以这样配置。
+### 3. 如果使用 `classpath` 方式
 
 根 `build.gradle`：
 
@@ -115,7 +101,9 @@ apply plugin: 'com.android.application'
 apply plugin: 'zym.top.blackobfuscator'
 ```
 
-## 示例配置
+### 4. 配置签名
+
+插件最终会重新签名 APK，所以目标 variant 必须有完整的 `signingConfig`。
 
 ```groovy
 android {
@@ -134,7 +122,11 @@ android {
         }
     }
 }
+```
 
+### 5. 配置 `blackObfuscator`
+
+```groovy
 blackObfuscator {
     enabled = true
     autoRun = false
@@ -146,27 +138,36 @@ blackObfuscator {
 }
 ```
 
-执行：
+注意：
+
+- `packageName` 和 `rulesFile` 必须二选一
+- `variants = ["release"]` 表示只处理 release APK
+
+### 6. 执行任务
 
 ```powershell
 .\gradlew blackObfuscateRelease
 ```
 
-## 配置项说明
+如果希望每次 `assembleRelease` 后自动执行：
 
-| 配置项 | 类型 | 说明 |
-|---|---|---|
-| `enabled` | `boolean` | 是否启用插件 |
-| `autoRun` | `boolean` | 是否自动挂到 `assemble<Variant>` 后执行 |
-| `depth` | `int` | 混淆深度，建议从 `1` 开始 |
-| `packageName` | `String` | 需要混淆的包名 |
-| `rulesFile` | `Object` | 规则文件路径 |
-| `variants` | `List<String>` | 指定要处理的 variant，例如 `["release"]` |
-| `outputSuffix` | `String` | 输出 APK 的后缀 |
+```groovy
+blackObfuscator {
+    autoRun = true
+    variants = ["release"]
+}
+```
+
+### 7. 输出文件
+
+默认会在原 APK 同目录生成：
+
+```text
+app-release-blackobf.apk
+```
 
 ## 要求
 
 - Android SDK 可通过 `local.properties` 或 `ANDROID_SDK_ROOT` 找到
 - `build-tools` 中需要存在 `zipalign` 和 `apksigner`
 - 目标 variant 必须配置有效的 `signingConfig`
-- `packageName` 和 `rulesFile` 必须二选一

@@ -2,13 +2,13 @@
 
 ![](https://img.shields.io/badge/language-java-brightgreen.svg)
 
-BlackObfuscator 是一个面向 Android Dex/APK 的控制流混淆工具，基于 `dex2jar` 修改而来。当前仓库已经包含命令行工具和一个可发布到本地 Maven 的 Gradle Android 插件。
+BlackObfuscator 是一个面向 Android Dex/APK 的控制流混淆工具，基于 `dex2jar` 修改而来。它提供一个可接入 Android `application` 工程的 Gradle 插件，在 APK 生成后自动执行 dex 混淆、重打包、`zipalign` 和重新签名。
 
-## 项目说明
+## 适用范围
 
-- 本项目基于 [dex2jar](https://github.com/pxb1988/dex2jar) 修改
-- 更适合混淆业务代码，不建议无差别混淆第三方库
-- 插件适用于 `com.android.application`
+- Android `application` 项目
+- 需要对构建后的 APK 做 dex 混淆
+- 已配置可用的签名信息
 
 ## 版本兼容
 
@@ -22,10 +22,9 @@ BlackObfuscator 是一个面向 Android Dex/APK 的控制流混淆工具，基�
 ## 插件信息
 
 - 插件 ID：`zym.top.blackobfuscator`
-- 本地 Maven 坐标：`zym.top.blackobfuscator:blackobfuscator-gradle-plugin:2.1-SNAPSHOT`
-- 当前模式：APK 后处理，不是 AGP 编译期字节码插桩
+- 插件模式：APK 后处理，不是 AGP 编译期字节码插桩
 
-插件的执行流程如下：
+插件执行流程：
 
 1. 先执行 `assemble<Variant>`
 2. 找到该变体输出的 APK
@@ -37,25 +36,11 @@ BlackObfuscator 是一个面向 Android Dex/APK 的控制流混淆工具，基�
 
 ## 接入步骤
 
-### 1. 先把插件发布到本地 Maven
+下面的说明面向插件使用者，默认你已经能从自己的仓库体系中拿到插件产物。
 
-在当前仓库根目录执行：
+### 1. 在项目中加入插件仓库
 
-```powershell
-gradle :blackobfuscator-gradle-plugin:publishToMavenLocal
-```
-
-发布完成后，可以通过以下坐标引用插件实现：
-
-```text
-zym.top.blackobfuscator:blackobfuscator-gradle-plugin:2.1-SNAPSHOT
-```
-
-同时 Gradle 也会生成插件 marker，这样你可以直接在 `plugins {}` 里按插件 ID 使用它。
-
-### 2. 在 app 工程中加入 `mavenLocal()`
-
-如果你想用 `plugins {}` 方式应用插件，需要先让项目在插件解析阶段可以访问本地 Maven。
+如果你的插件产物在本地 Maven，就把 `mavenLocal()` 加到仓库列表里。
 
 Groovy DSL，`settings.gradle`：
 
@@ -101,9 +86,11 @@ dependencyResolutionManagement {
 }
 ```
 
-### 3. 应用插件
+如果你的插件在公司私服或其他 Maven 仓库，把 `mavenLocal()` 换成对应仓库地址即可。
 
-推荐优先使用 `plugins {}` 方式。
+### 2. 应用插件
+
+推荐优先使用 `plugins {}`。
 
 Groovy DSL，`app/build.gradle`：
 
@@ -123,11 +110,9 @@ plugins {
 }
 ```
 
-### 4. 如果你想走 `classpath` 方式
+如果你项目仍然使用传统 `buildscript classpath` 方式，也可以这样写：
 
-也可以直接通过本地 Maven 坐标引入：
-
-Groovy DSL，根 `build.gradle`：
+根 `build.gradle`：
 
 ```groovy
 buildscript {
@@ -142,18 +127,18 @@ buildscript {
 }
 ```
 
-然后在 `app/build.gradle`：
+`app/build.gradle`：
 
 ```groovy
 apply plugin: 'com.android.application'
 apply plugin: 'zym.top.blackobfuscator'
 ```
 
-### 5. 配置 Android 签名
+### 3. 配置 Android 签名
 
 插件最终会重新签名 APK，所以目标 variant 必须有完整的 `signingConfig`。
 
-Groovy DSL:
+Groovy DSL：
 
 ```groovy
 android {
@@ -174,7 +159,7 @@ android {
 }
 ```
 
-Kotlin DSL:
+Kotlin DSL：
 
 ```kotlin
 android {
@@ -195,14 +180,14 @@ android {
 }
 ```
 
-### 6. 配置 `blackObfuscator`
+### 4. 配置 `blackObfuscator`
 
 你必须二选一配置：
 
 - `packageName`
 - `rulesFile`
 
-Groovy DSL:
+Groovy DSL：
 
 ```groovy
 blackObfuscator {
@@ -216,7 +201,7 @@ blackObfuscator {
 }
 ```
 
-Kotlin DSL:
+Kotlin DSL：
 
 ```kotlin
 blackObfuscator {
@@ -230,7 +215,7 @@ blackObfuscator {
 }
 ```
 
-### 7. 执行任务
+### 5. 执行任务
 
 如果你配置了：
 
@@ -244,7 +229,7 @@ variants = ["release"]
 ./gradlew blackObfuscateRelease
 ```
 
-如果你希望每次 `assembleRelease` 后自动执行，可以配置：
+如果希望每次 `assembleRelease` 后自动执行，可以配置：
 
 ```groovy
 blackObfuscator {
@@ -253,7 +238,7 @@ blackObfuscator {
 }
 ```
 
-### 8. 输出文件
+### 6. 查看输出 APK
 
 默认会在原 APK 同目录生成：
 
@@ -273,14 +258,14 @@ app-release-blackobf.apk
 | `variants` | `List<String>` | 指定要处理的 variant，例如 `["release"]` |
 | `outputSuffix` | `String` | 输出 APK 的后缀 |
 
-约束：
+## 使用要求
 
+- Android SDK 可通过 `local.properties` 或 `ANDROID_SDK_ROOT` 找到
+- `build-tools` 中需要存在 `zipalign` 和 `apksigner`
+- 目标 variant 必须配置有效的 `signingConfig`
 - `packageName` 和 `rulesFile` 必须二选一
-- 必须存在有效的 Android `signingConfig`
-- 本机需要可用的 Android SDK 和 `build-tools`
-- 插件当前适用于 `application`，不适用于 `library`
 
-## 命令行使用
+## 命令行方式
 
 命令行入口：
 
@@ -298,7 +283,7 @@ BlackObfuscatorCmd.main(
 );
 ```
 
-## 更多文档
+## 相关文档
 
 - [GRADLE_ANDROID_PLUGIN_USAGE.md](GRADLE_ANDROID_PLUGIN_USAGE.md)
 - [GRADLE_ANDROID_PLUGIN_USAGE_ZH.md](GRADLE_ANDROID_PLUGIN_USAGE_ZH.md)
