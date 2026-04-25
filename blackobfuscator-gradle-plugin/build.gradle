@@ -4,9 +4,18 @@ apply plugin: 'maven-publish'
 group = 'zym.top.blackobfuscator'
 description = 'BlackObfuscator Gradle plugin for Android APK post-processing'
 
+configurations {
+  bundled {
+    canBeConsumed = false
+    canBeResolved = true
+    transitive = true
+  }
+}
+
 dependencies {
   compileOnly gradleApi()
   implementation project(':dex-tools')
+  bundled project(':dex-tools')
 }
 
 gradlePlugin {
@@ -16,6 +25,26 @@ gradlePlugin {
       implementationClass = 'top.niunaijun.blackobfuscator.gradle.BlackObfuscatorGradlePlugin'
       displayName = 'BlackObfuscator Gradle Plugin'
       description = 'Obfuscate Android APK dex files after assemble and re-sign the output APK.'
+    }
+  }
+}
+
+jar {
+  dependsOn configurations.bundled
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  from {
+    configurations.bundled.collect { it.isDirectory() ? it : zipTree(it) }
+  }
+  exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+}
+
+publishing {
+  publications.withType(MavenPublication).configureEach {
+    pom.withXml {
+      def dependenciesNode = asNode().get('dependencies')
+      dependenciesNode.each { node ->
+        asNode().remove(node)
+      }
     }
   }
 }
