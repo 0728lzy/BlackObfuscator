@@ -1,0 +1,16 @@
+apply plugin: 'java-gradle-plugin'
+
+dependencies {
+  compileOnly gradleApi()
+  compileOnly 'com.android.tools.build:gradle:4.2.2'
+  implementation project(':dex-tools')
+}
+
+gradlePlugin {
+  plugins {
+    blackObfuscatorPlugin {
+      id = 'top.niunaijun.blackobfuscator'
+      implementationClass = 'top.niunaijun.blackobfuscator.gradle.BlackObfuscatorGradlePlugin'
+    }
+  }
+}

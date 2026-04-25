@@ -14,6 +14,11 @@ Black Obfuscator is an obfuscator for Android APK DexFile, it can help developer
 ## Android Studio Plugin
 The Android Studio Plugin version of this project has been developed, it supports obfuscating code automatically. More information about it are in [BlackObfuscator-ASPlugin](https://github.com/CodingGay/BlackObfuscator-ASPlugin)
 
+## Gradle Android Plugin
+This repository now also contains a Gradle Android plugin module for `com.android.application` projects.
+See [GRADLE_ANDROID_PLUGIN_USAGE.md](GRADLE_ANDROID_PLUGIN_USAGE.md) for configuration and task usage.
+Chinese documentation is available at [README_ZH.md](README_ZH.md) and [GRADLE_ANDROID_PLUGIN_USAGE_ZH.md](GRADLE_ANDROID_PLUGIN_USAGE_ZH.md).
+
 ## GUI
 The graphical utility based on this project has been developed. More information about it are in [BlackObfuscator-GUI](https://github.com/CodingGay/BlackObfuscator-GUI)
 

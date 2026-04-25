@@ -5,4 +5,5 @@ include 'dex-obfuscator'
 include 'main'
 include 'ams'
 include 'dx'
+include 'blackobfuscator-gradle-plugin'
 
