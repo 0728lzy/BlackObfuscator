@@ -97,7 +97,7 @@ Groovy DSL，`app/build.gradle`：
 ```groovy
 plugins {
     id 'com.android.application'
-    id 'zym.top.blackobfuscator' version '1.0.1'
+    id 'zym.top.blackobfuscator' version '1.0.3'
 }
 ```
 
@@ -106,7 +106,7 @@ Kotlin DSL，`app/build.gradle.kts`：
 ```kotlin
 plugins {
     id("com.android.application")
-    id("zym.top.blackobfuscator") version "1.0.1"
+    id("zym.top.blackobfuscator") version "1.0.3"
 }
 ```
 
@@ -122,7 +122,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.1"
+        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.3"
     }
 }
 ```
@@ -198,6 +198,7 @@ blackObfuscator {
     // 或者 rulesFile = file("blackobfuscator-rules.txt")
     variants = ["release"]
     outputSuffix = "-blackobf"
+    deleteOriginalApk = false
 }
 ```
 
@@ -212,6 +213,7 @@ blackObfuscator {
     // 或者 rulesFile = file("blackobfuscator-rules.txt")
     variants = mutableListOf("release")
     outputSuffix = "-blackobf"
+    isDeleteOriginalApk = false
 }
 ```
 
@@ -257,6 +259,7 @@ app-release-blackobf.apk
 | `rulesFile` | `Object` | 规则文件路径 |
 | `variants` | `List<String>` | 指定要处理的 variant，例如 `["release"]` |
 | `outputSuffix` | `String` | 输出 APK 的后缀 |
+| `deleteOriginalApk` | `boolean` | 混淆 APK 成功后是否删除原 APK |
 
 ## 使用要求
 

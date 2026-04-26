@@ -44,9 +44,20 @@ public class BlackObfuscatorGradlePlugin implements Plugin<Project> {
     private void registerVariantTask(Project project, BlackObfuscatorExtension extension, Object variant) {
         String variantName = String.valueOf(invoke(variant, "getName"));
         String taskName = "blackObfuscate" + capitalize(variantName);
+        String prepareTaskName = "prepareBlackObfuscator" + capitalize(variantName);
         String variantDirName = String.valueOf(invoke(variant, "getDirName"));
         VariantSigningInfo signingInfo = extractSigningInfo(variant);
         String namespace = extractNamespace(project);
+        File generatedAutoFilterFile = new File(project.getBuildDir(), "blackobfuscator-auto-filter/" + variantName + "/filter.txt");
+
+        TaskProvider<BlackObfuscatorAutoFilterTask> prepareTaskProvider = project.getTasks().register(prepareTaskName, BlackObfuscatorAutoFilterTask.class, task -> {
+            task.setGroup("blackobfuscator");
+            task.setDescription("Snapshot source classes for the " + variantName + " BlackObfuscator auto filter.");
+            task.setExtension(extension);
+            task.setVariantName(variantName);
+            task.setGeneratedRulesFile(generatedAutoFilterFile);
+            task.setNamespace(namespace);
+        });
 
         TaskProvider<BlackObfuscateApkTask> taskProvider = project.getTasks().register(taskName, BlackObfuscateApkTask.class, task -> {
             task.setGroup("blackobfuscator");
@@ -58,11 +69,15 @@ public class BlackObfuscatorGradlePlugin implements Plugin<Project> {
             task.setRootDir(project.getRootDir());
             task.setNamespace(namespace);
             task.setSigningInfo(signingInfo);
+            task.setGeneratedAutoFilterFile(generatedAutoFilterFile);
         });
 
         Object assembleProvider = findAssembleProvider(variant);
         if (assembleProvider != null) {
             taskProvider.configure(task -> task.dependsOn(assembleProvider));
+            configureDependsOn(assembleProvider, prepareTaskProvider);
+        } else {
+            taskProvider.configure(task -> task.dependsOn(prepareTaskProvider));
         }
 
         if (extension.isAutoRun() && shouldHandleVariant(extension, variantName)) {
@@ -71,6 +86,14 @@ public class BlackObfuscatorGradlePlugin implements Plugin<Project> {
             } else if (assembleProvider instanceof Task) {
                 ((Task) assembleProvider).finalizedBy(taskProvider);
             }
+        }
+    }
+
+    private void configureDependsOn(Object taskObject, TaskProvider<?> dependency) {
+        if (taskObject instanceof TaskProvider) {
+            ((TaskProvider<?>) taskObject).configure(task -> task.dependsOn(dependency));
+        } else if (taskObject instanceof Task) {
+            ((Task) taskObject).dependsOn(dependency);
         }
     }
 

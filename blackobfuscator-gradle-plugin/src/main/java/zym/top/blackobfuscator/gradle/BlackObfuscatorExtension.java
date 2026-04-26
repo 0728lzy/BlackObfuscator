@@ -12,6 +12,7 @@ public class BlackObfuscatorExtension {
     private String packageName;
     private Object rulesFile;
     private String outputSuffix = "-blackobf";
+    private boolean deleteOriginalApk = false;
     private List<String> variants = new ArrayList<String>();
 
     public boolean isEnabled() {
@@ -68,6 +69,14 @@ public class BlackObfuscatorExtension {
 
     public void setOutputSuffix(String outputSuffix) {
         this.outputSuffix = outputSuffix;
+    }
+
+    public boolean isDeleteOriginalApk() {
+        return deleteOriginalApk;
+    }
+
+    public void setDeleteOriginalApk(boolean deleteOriginalApk) {
+        this.deleteOriginalApk = deleteOriginalApk;
     }
 
     public List<String> getVariants() {

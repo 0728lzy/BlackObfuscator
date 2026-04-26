@@ -44,6 +44,7 @@ public class BlackObfuscateApkTask extends DefaultTask {
     private File rootDir;
     private String namespace;
     private VariantSigningInfo signingInfo;
+    private File generatedAutoFilterFile;
     private static final Pattern PACKAGE_PATTERN = Pattern.compile("(?m)^\\s*package\\s+([A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)*)\\s*;?\\s*$");
 
     @TaskAction
@@ -74,7 +75,10 @@ public class BlackObfuscateApkTask extends DefaultTask {
 
         File mergedRulesFile = null;
         if (extension.isAutoFilter()) {
-            mergedRulesFile = generateAutoRulesFile(new File(workDir, "filter.txt"));
+            mergedRulesFile = resolveAutoFilterRulesFile();
+            if (mergedRulesFile == null || !mergedRulesFile.isFile()) {
+                mergedRulesFile = generateAutoRulesFile(new File(workDir, "filter.txt"));
+            }
             getLogger().lifecycle("BlackObfuscator auto filter: {}", mergedRulesFile.getAbsolutePath());
         }
 
@@ -93,6 +97,7 @@ public class BlackObfuscateApkTask extends DefaultTask {
         runCommand(workDir, apksigner.getAbsolutePath(), "verify", "--verbose", outputApk.getAbsolutePath());
         runCommand(workDir, zipalign.getAbsolutePath(), "-c", "-p", "4", outputApk.getAbsolutePath());
 
+        deleteOriginalApkIfRequested(inputApk, outputApk);
         getLogger().lifecycle("BlackObfuscator output: {}", outputApk.getAbsolutePath());
     }
 
@@ -322,19 +327,29 @@ public class BlackObfuscateApkTask extends DefaultTask {
     }
 
     private File locateInputApk() {
-        File apkDir = new File(projectBuildDir, "outputs/apk");
-        if (!apkDir.isDirectory()) {
-            throw new GradleException("APK output directory not found: " + apkDir.getAbsolutePath());
-        }
+        List<File> roots = new ArrayList<File>();
+        addSearchRoot(roots, new File(projectBuildDir, "outputs/apk"));
+        addSearchRoot(roots, new File(getProject().getProjectDir(), variantDirName));
+        addSearchRoot(roots, new File(getProject().getProjectDir(), variantName));
+        addSearchRoot(roots, new File(getProject().getProjectDir(), "release"));
+        addSearchRoot(roots, new File(getProject().getProjectDir(), "debug"));
 
         List<File> candidates = new ArrayList<File>();
-        collectApks(apkDir, candidates);
+        for (File root : roots) {
+            collectApks(root, candidates);
+        }
 
         File selected = null;
         for (File candidate : candidates) {
             String normalizedPath = candidate.getAbsolutePath().replace('\\', '/').toLowerCase(Locale.ROOT);
             String normalizedVariant = variantDirName.replace('\\', '/').toLowerCase(Locale.ROOT);
-            if (!normalizedPath.contains("/" + normalizedVariant.toLowerCase(Locale.ROOT) + "/")) {
+            String normalizedName = candidate.getName().toLowerCase(Locale.ROOT);
+            String normalizedVariantName = variantName.toLowerCase(Locale.ROOT);
+            String normalizedSuffix = extension.getOutputSuffix() == null ? "" : extension.getOutputSuffix().toLowerCase(Locale.ROOT);
+            boolean pathMatchesVariant = normalizedPath.contains("/" + normalizedVariant.toLowerCase(Locale.ROOT) + "/");
+            boolean nameMatchesVariant = normalizedName.contains(normalizedVariantName);
+            boolean isGeneratedOutput = !normalizedSuffix.isEmpty() && normalizedName.contains(normalizedSuffix);
+            if ((!pathMatchesVariant && !nameMatchesVariant) || isGeneratedOutput) {
                 continue;
             }
             if (selected == null || candidate.lastModified() > selected.lastModified()) {
@@ -343,13 +358,29 @@ public class BlackObfuscateApkTask extends DefaultTask {
         }
 
         if (selected == null) {
-            throw new GradleException("Could not locate APK for variant " + variantName + " under " + apkDir.getAbsolutePath());
+            throw new GradleException("Could not locate APK for variant " + variantName + ". Searched: " + joinFiles(roots));
         }
 
         return selected;
     }
 
+    private void addSearchRoot(List<File> roots, File root) {
+        if (root == null || !root.isDirectory()) {
+            return;
+        }
+        String path = root.getAbsolutePath();
+        for (File existing : roots) {
+            if (existing.getAbsolutePath().equals(path)) {
+                return;
+            }
+        }
+        roots.add(root);
+    }
+
     private void collectApks(File dir, List<File> result) {
+        if (dir == null || !dir.isDirectory()) {
+            return;
+        }
         File[] files = dir.listFiles();
         if (files == null) {
             return;
@@ -360,6 +391,24 @@ public class BlackObfuscateApkTask extends DefaultTask {
             } else if (file.getName().toLowerCase(Locale.ROOT).endsWith(".apk")) {
                 result.add(file);
             }
+        }
+    }
+
+    private void deleteOriginalApkIfRequested(File inputApk, File outputApk) {
+        if (!extension.isDeleteOriginalApk()) {
+            return;
+        }
+        if (inputApk == null || outputApk == null) {
+            return;
+        }
+        if (inputApk.getAbsolutePath().equals(outputApk.getAbsolutePath())) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(inputApk.toPath());
+            getLogger().lifecycle("BlackObfuscator deleted original APK: {}", inputApk.getAbsolutePath());
+        } catch (IOException e) {
+            throw new GradleException("Failed to delete original APK " + inputApk.getAbsolutePath(), e);
         }
     }
 
@@ -447,6 +496,35 @@ public class BlackObfuscateApkTask extends DefaultTask {
         return outputFile;
     }
 
+    private File resolveAutoFilterRulesFile() {
+        Object rulesFile = extension.getRulesFile();
+        if (rulesFile != null) {
+            return getProject().file(rulesFile);
+        }
+        return generatedAutoFilterFile;
+    }
+
+    private List<String> readAutoFilterRulesFile() {
+        File autoFilterRulesFile = resolveAutoFilterRulesFile();
+        if (autoFilterRulesFile == null || !autoFilterRulesFile.isFile()) {
+            return Collections.emptyList();
+        }
+        try {
+            List<String> rules = new ArrayList<String>();
+            List<String> lines = Files.readAllLines(autoFilterRulesFile.toPath());
+            for (String line : lines) {
+                String rule = line.trim();
+                if (rule.isEmpty() || rule.startsWith("#")) {
+                    continue;
+                }
+                rules.add(rule);
+            }
+            return rules;
+        } catch (IOException e) {
+            throw new GradleException("Failed to read auto filter rules file: " + autoFilterRulesFile.getAbsolutePath(), e);
+        }
+    }
+
     private void appendConfiguredRules(Writer writer, File configuredRulesFile) throws IOException {
         if (configuredRulesFile == null) {
             return;
@@ -465,6 +543,11 @@ public class BlackObfuscateApkTask extends DefaultTask {
     }
 
     private Set<String> collectAutoFilterRules(String autoFilterNamespace) {
+        List<String> autoFilterRules = readAutoFilterRulesFile();
+        if (!autoFilterRules.isEmpty()) {
+            return new LinkedHashSet<String>(autoFilterRules);
+        }
+
         File srcDir = new File(getProject().getProjectDir(), "src");
         if (!srcDir.isDirectory()) {
             return Collections.emptySet();
@@ -479,8 +562,6 @@ public class BlackObfuscateApkTask extends DefaultTask {
             if (declaredPackage == null || !isNamespaceMatch(declaredPackage, autoFilterNamespace)) {
                 continue;
             }
-
-            rules.add(declaredPackage);
 
             String simpleName = source.getName();
             int dot = simpleName.lastIndexOf('.');
@@ -643,6 +724,17 @@ public class BlackObfuscateApkTask extends DefaultTask {
         return builder.toString();
     }
 
+    private String joinFiles(List<File> files) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < files.size(); i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            builder.append(files.get(i).getAbsolutePath());
+        }
+        return builder.toString();
+    }
+
     private boolean isWindows() {
         return System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
     }
@@ -673,5 +765,9 @@ public class BlackObfuscateApkTask extends DefaultTask {
 
     public void setSigningInfo(VariantSigningInfo signingInfo) {
         this.signingInfo = signingInfo;
+    }
+
+    public void setGeneratedAutoFilterFile(File generatedAutoFilterFile) {
+        this.generatedAutoFilterFile = generatedAutoFilterFile;
     }
 }

@@ -64,7 +64,7 @@ Groovy DSL，`app/build.gradle`：
 ```groovy
 plugins {
     id 'com.android.application'
-    id 'zym.top.blackobfuscator' version '1.0.1'
+    id 'zym.top.blackobfuscator' version '1.0.3'
 }
 ```
 
@@ -73,7 +73,7 @@ Kotlin DSL，`app/build.gradle.kts`：
 ```kotlin
 plugins {
     id("com.android.application")
-    id("zym.top.blackobfuscator") version "1.0.1"
+    id("zym.top.blackobfuscator") version "1.0.3"
 }
 ```
 
@@ -89,7 +89,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.1"
+        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.3"
     }
 }
 ```
@@ -135,6 +135,7 @@ blackObfuscator {
     // 或者 rulesFile = file("blackobfuscator-rules.txt")
     variants = ["release"]
     outputSuffix = "-blackobf"
+    deleteOriginalApk = false
 }
 ```
 
