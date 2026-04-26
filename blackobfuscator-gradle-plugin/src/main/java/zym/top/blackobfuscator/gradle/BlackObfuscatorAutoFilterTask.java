@@ -164,6 +164,43 @@ public class BlackObfuscatorAutoFilterTask extends DefaultTask {
         if (namespace != null && !namespace.trim().isEmpty()) {
             return namespace.trim();
         }
+        return readManifestPackage();
+    }
+
+    private String readManifestPackage() {
+        File manifest = new File(getProject().getProjectDir(), "src/main/AndroidManifest.xml");
+        String packageName = readManifestPackage(manifest);
+        if (packageName != null) {
+            return packageName;
+        }
+
+        File mainSourceDir = new File(getProject().getProjectDir(), "src/main");
+        File[] manifests = mainSourceDir.listFiles((dir, name) ->
+                name.startsWith("AndroidManifest") && name.endsWith(".xml"));
+        if (manifests == null) {
+            return null;
+        }
+        for (File candidate : manifests) {
+            packageName = readManifestPackage(candidate);
+            if (packageName != null) {
+                return packageName;
+            }
+        }
+        return null;
+    }
+
+    private String readManifestPackage(File manifest) {
+        if (manifest == null || !manifest.isFile()) {
+            return null;
+        }
+        try {
+            String content = new String(Files.readAllBytes(manifest.toPath()), "UTF-8");
+            Matcher matcher = Pattern.compile("package\\s*=\\s*\"([^\"]+)\"").matcher(content);
+            if (matcher.find()) {
+                return matcher.group(1).trim();
+            }
+        } catch (IOException ignored) {
+        }
         return null;
     }
 
