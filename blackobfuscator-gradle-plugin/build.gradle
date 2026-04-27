@@ -15,8 +15,8 @@ if (GradleVersion.current() >= GradleVersion.version('7.4')) {
   apply plugin: 'com.gradle.plugin-publish'
 }
 
-group = 'zym.top.blackobfuscator'
-description = 'BlackObfuscator Gradle plugin for Android APK post-processing'
+group = 'io.github.0728lzy.zymproguardobfuscator'
+description = 'ZymProGuard Obfuscator Gradle plugin for Android APK post-processing'
 
 configurations {
   bundled {
@@ -38,9 +38,9 @@ gradlePlugin {
   vcsUrl = 'https://github.com/0728lzy/BlackObfuscator.git'
   plugins {
     blackObfuscatorPlugin {
-      id = 'zym.top.blackobfuscator'
-      implementationClass = 'zym.top.blackobfuscator.gradle.BlackObfuscatorGradlePlugin'
-      displayName = 'BlackObfuscator Gradle Plugin'
+      id = 'io.github.0728lzy.zymproguardobfuscator'
+      implementationClass = 'io.github._0728lzy.zymproguardobfuscator.gradle.BlackObfuscatorGradlePlugin'
+      displayName = 'ZymProGuard Obfuscator Gradle Plugin'
       description = 'Obfuscate Android APK dex files after assemble and re-sign the output APK.'
       tags.set(['android', 'apk', 'obfuscation', 'dex'])
     }
@@ -74,7 +74,7 @@ publishing {
       def dependenciesNode = asNode().get('dependencies')
       dependenciesNode.each { node ->
         node.children().findAll {
-          it.name() == 'dependency' && it.groupId?.text() == 'com.github.CodingGay.BlackObfuscator'
+          it.name() == 'dependency' && it.groupId?.text() == 'io.github.0728lzy.zymproguardobfuscator'
         }.each { dependency ->
           node.remove(dependency)
         }

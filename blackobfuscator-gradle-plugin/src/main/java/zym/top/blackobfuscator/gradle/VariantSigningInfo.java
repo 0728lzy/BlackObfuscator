@@ -1,4 +1,4 @@
-package zym.top.blackobfuscator.gradle;
+package io.github._0728lzy.zymproguardobfuscator.gradle;
 
 import java.io.File;
 

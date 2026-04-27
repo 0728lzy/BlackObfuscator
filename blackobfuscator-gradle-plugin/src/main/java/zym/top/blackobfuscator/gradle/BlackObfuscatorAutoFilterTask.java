@@ -1,4 +1,4 @@
-package zym.top.blackobfuscator.gradle;
+package io.github._0728lzy.zymproguardobfuscator.gradle;
 
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;

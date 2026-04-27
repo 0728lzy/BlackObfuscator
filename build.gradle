@@ -1,8 +1,8 @@
 allprojects  {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
-  group = 'com.github.CodingGay.BlackObfuscator'
-  version = '1.0.6'
+  group = 'io.github.0728lzy.zymproguardobfuscator'
+  version = '1.0.7'
 }
 
 defaultTasks('clean','distZip')

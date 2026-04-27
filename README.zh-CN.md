@@ -1,26 +1,26 @@
 # ZymProGuard Obfuscator
 
-[中文文档](README.zh-CN.md)
+[English](README.md)
 
-ZymProGuard Obfuscator is a Gradle plugin for Android `application` projects. It obfuscates `classes*.dex` after `assemble`, rebuilds the APK, runs `zipalign`, re-signs the result, and can optionally run a DPT shelling step.
+ZymProGuard Obfuscator 是一个面向 Android `application` 工程的 Gradle 插件。它会在 `assemble` 之后对 `classes*.dex` 做混淆，重新打包 APK，执行 `zipalign`，重新签名，并且可以按需继续执行 DPT 加壳。
 
-## Plugin ID
+## 插件 ID
 
 `io.github.0728lzy.zymproguardobfuscator`
 
-## What You Need
+## 使用前提
 
-- An Android `application` module
-- A valid release `signingConfig`
-- Android SDK with `zipalign` and `apksigner`
-- One of:
+- Android `application` 模块
+- 可用的 release `signingConfig`
+- Android SDK 中存在 `zipalign` 和 `apksigner`
+- 下列三种方式至少配置一种：
   `packageName`
   `rulesFile`
   `autoFilter = true`
 
-## How To Apply
+## 接入方式
 
-If you publish the plugin to GitHub Packages or another Maven repository, add that repository to plugin resolution first.
+如果你是从 GitHub Packages 或其他 Maven 仓库拉取插件，先把仓库加到插件解析配置里。
 
 `settings.gradle`
 
@@ -41,7 +41,7 @@ pluginManagement {
 }
 ```
 
-Then apply the plugin in your app module:
+然后在 `app/build.gradle` 中应用插件：
 
 ```groovy
 plugins {
@@ -50,7 +50,7 @@ plugins {
 }
 ```
 
-If you prefer `buildscript`:
+如果你使用 `buildscript` 方式：
 
 ```groovy
 buildscript {
@@ -74,9 +74,9 @@ apply plugin: 'com.android.application'
 apply plugin: 'io.github.0728lzy.zymproguardobfuscator'
 ```
 
-## How To Configure
+## 配置方式
 
-Basic usage:
+基础配置示例：
 
 ```groovy
 android {
@@ -105,12 +105,12 @@ blackObfuscator {
     deleteOriginalApk = true
 
     autoFilter = true
-    // or packageName = "com.example.app"
-    // or rulesFile = file("blackobfuscator-rules.txt")
+    // 或者 packageName = "com.example.app"
+    // 或者 rulesFile = file("blackobfuscator-rules.txt")
 }
 ```
 
-Optional DPT shelling:
+如果还要开启 DPT 加壳：
 
 ```groovy
 blackObfuscator {
@@ -119,7 +119,7 @@ blackObfuscator {
     dptJar = file("tools/dpt.jar")
     dptExcludeAbi = "x86,x86_64"
 
-    // optional
+    // 可选
     // dptRulesFile = file("tools/dpt-rules.txt")
     // dptProtectConfig = file("tools/dpt-protect.json")
     // javaExecutable = "C:/Program Files/Java/jdk-17/bin/java.exe"
@@ -127,21 +127,21 @@ blackObfuscator {
 }
 ```
 
-Important for DPT:
+DPT 额外注意：
 
-- `dpt.jar` may require its companion `shell-files` directory beside the jar
-- The release build must already be signable before the DPT step starts
+- `dpt.jar` 很可能要求同级目录下还存在 `shell-files`
+- DPT 开始之前，release APK 本身必须已经可以正常签名
 
-## How To Run
+## 运行方式
 
-Run a specific variant:
+手动执行：
 
 ```powershell
 .\gradlew blackObfuscateRelease
 ```
 
-If `autoRun = true`, the plugin runs automatically after `assembleRelease`.
+如果配置了 `autoRun = true`，那么在 `assembleRelease` 之后会自动执行。
 
-## Output
+## 输出结果
 
-By default the plugin writes a new APK next to the original output, using your configured `outputSuffix`.
+默认会在原始 APK 输出目录旁边生成一个带有 `outputSuffix` 后缀的新 APK。
