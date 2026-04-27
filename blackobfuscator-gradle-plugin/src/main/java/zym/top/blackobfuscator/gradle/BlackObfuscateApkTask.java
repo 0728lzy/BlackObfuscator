@@ -18,6 +18,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -96,6 +97,13 @@ public class BlackObfuscateApkTask extends DefaultTask {
         signApk(workDir, apksigner, alignedApk, outputApk);
         runCommand(workDir, apksigner.getAbsolutePath(), "verify", "--verbose", outputApk.getAbsolutePath());
         runCommand(workDir, zipalign.getAbsolutePath(), "-c", "-p", "4", outputApk.getAbsolutePath());
+
+        if (extension.isDptEnabled()) {
+            File dptProtectedApk = runDpt(workDir, outputApk);
+            runCommand(workDir, apksigner.getAbsolutePath(), "verify", "--verbose", dptProtectedApk.getAbsolutePath());
+            runCommand(workDir, zipalign.getAbsolutePath(), "-c", "-p", "4", dptProtectedApk.getAbsolutePath());
+            replaceOutputApk(outputApk, dptProtectedApk);
+        }
 
         deleteOriginalApkIfRequested(inputApk, outputApk);
         getLogger().lifecycle("BlackObfuscator output: {}", outputApk.getAbsolutePath());
@@ -229,6 +237,78 @@ public class BlackObfuscateApkTask extends DefaultTask {
                 "--key-pass", "pass:" + signingInfo.getKeyPassword(),
                 "--out", outputApk.getAbsolutePath(),
                 alignedApk.getAbsolutePath());
+    }
+
+    private File runDpt(File workDir, File inputApk) {
+        File dptJar = requireConfiguredFile(extension.getDptJar(), "blackObfuscator.dptJar");
+        File dptOutputDir = new File(workDir, "dpt");
+        File dptAlignedApk = new File(workDir, replaceApkSuffix(inputApk.getName(), "-dpt-aligned.apk"));
+        File dptProtectedApk = new File(workDir, replaceApkSuffix(inputApk.getName(), "-dpt.apk"));
+
+        recreateDir(dptOutputDir);
+
+        List<String> command = new ArrayList<String>();
+        command.add(resolveJavaExecutable().getAbsolutePath());
+        command.add("-jar");
+        command.add(dptJar.getAbsolutePath());
+        command.add("-f");
+        command.add(inputApk.getAbsolutePath());
+        command.add("-o");
+        command.add(dptOutputDir.getAbsolutePath());
+        command.add("-x");
+
+        if (extension.isDptDebug()) {
+            command.add("--debug");
+        }
+        if (extension.isDptDisableAcf()) {
+            command.add("--disable-acf");
+        }
+        if (extension.isDptDumpCode()) {
+            command.add("--dump-code");
+        }
+        if (extension.isDptNoisyLog()) {
+            command.add("--noisy-log");
+        }
+        if (extension.isDptKeepClasses()) {
+            command.add("-K");
+        }
+        if (extension.isDptSmaller()) {
+            command.add("-S");
+        }
+        if (extension.isDptVerifySign()) {
+            command.add("-vs");
+        }
+        if (extension.getDptExcludeAbi() != null && !extension.getDptExcludeAbi().trim().isEmpty()) {
+            command.add("-e");
+            command.add(extension.getDptExcludeAbi().trim());
+        }
+
+        File dptRulesFile = resolveConfiguredFile(extension.getDptRulesFile());
+        if (dptRulesFile != null) {
+            command.add("-r");
+            command.add(dptRulesFile.getAbsolutePath());
+        }
+
+        File dptProtectConfig = resolveConfiguredFile(extension.getDptProtectConfig());
+        if (dptProtectConfig != null) {
+            command.add("-c");
+            command.add(dptProtectConfig.getAbsolutePath());
+        }
+
+        runCommand(workDir, command.toArray(new String[0]));
+
+        File generatedDptApk = findLatestApk(dptOutputDir);
+        if (generatedDptApk == null) {
+            throw new GradleException("dpt-shell did not generate an APK in " + dptOutputDir.getAbsolutePath());
+        }
+
+        File zipalign = findRequiredBuildTool("zipalign");
+        File apksigner = findRequiredBuildTool("apksigner");
+
+        runCommand(workDir, zipalign.getAbsolutePath(), "-f", "-p", "4",
+                generatedDptApk.getAbsolutePath(), dptAlignedApk.getAbsolutePath());
+        signApk(workDir, apksigner, dptAlignedApk, dptProtectedApk);
+        return dptProtectedApk;
     }
 
     private File findRequiredBuildTool(String toolName) {
@@ -609,6 +689,21 @@ public class BlackObfuscateApkTask extends DefaultTask {
         return null;
     }
 
+    private File resolveConfiguredFile(Object configuredPath) {
+        if (configuredPath == null) {
+            return null;
+        }
+        return getProject().file(configuredPath);
+    }
+
+    private File requireConfiguredFile(Object configuredPath, String propertyName) {
+        File file = resolveConfiguredFile(configuredPath);
+        if (file == null || !file.isFile()) {
+            throw new GradleException(propertyName + " does not exist: " + (file == null ? configuredPath : file.getAbsolutePath()));
+        }
+        return file;
+    }
+
     private boolean isNamespaceMatch(String packageName, String autoFilterNamespace) {
         return packageName.equals(autoFilterNamespace) || packageName.startsWith(autoFilterNamespace + ".");
     }
@@ -643,6 +738,14 @@ public class BlackObfuscateApkTask extends DefaultTask {
             return inputName + suffix + ".apk";
         }
         return inputName.substring(0, dotIndex) + suffix + ".apk";
+    }
+
+    private String replaceApkSuffix(String inputName, String newSuffix) {
+        int dotIndex = inputName.toLowerCase(Locale.ROOT).lastIndexOf(".apk");
+        if (dotIndex < 0) {
+            return inputName + newSuffix;
+        }
+        return inputName.substring(0, dotIndex) + newSuffix;
     }
 
     private boolean isDexEntry(String entryName) {
@@ -713,6 +816,37 @@ public class BlackObfuscateApkTask extends DefaultTask {
         }
     }
 
+    private File findLatestApk(File dir) {
+        if (dir == null || !dir.isDirectory()) {
+            return null;
+        }
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return null;
+        }
+        File latest = null;
+        for (File file : files) {
+            if (!file.isFile() || !file.getName().toLowerCase(Locale.ROOT).endsWith(".apk")) {
+                continue;
+            }
+            if (latest == null || file.lastModified() > latest.lastModified()) {
+                latest = file;
+            }
+        }
+        return latest;
+    }
+
+    private void replaceOutputApk(File outputApk, File replacementApk) {
+        if (outputApk.getAbsolutePath().equals(replacementApk.getAbsolutePath())) {
+            return;
+        }
+        try {
+            Files.move(replacementApk.toPath(), outputApk.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new GradleException("Failed to replace final APK " + outputApk.getAbsolutePath(), e);
+        }
+    }
+
     private String join(String[] command) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < command.length; i++) {
@@ -737,6 +871,54 @@ public class BlackObfuscateApkTask extends DefaultTask {
 
     private boolean isWindows() {
         return System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
+    }
+
+    private File resolveJavaExecutable() {
+        List<File> executableCandidates = new ArrayList<File>();
+        if (extension.getDptJavaExecutable() != null && !extension.getDptJavaExecutable().trim().isEmpty()) {
+            executableCandidates.add(getProject().file(extension.getDptJavaExecutable().trim()));
+        }
+        if (extension.getJavaExecutable() != null && !extension.getJavaExecutable().trim().isEmpty()) {
+            executableCandidates.add(getProject().file(extension.getJavaExecutable().trim()));
+        }
+        for (File candidate : executableCandidates) {
+            if (candidate.isFile()) {
+                return candidate;
+            }
+        }
+
+        List<File> javaHomes = new ArrayList<File>();
+        addJavaHomeCandidate(javaHomes, extension.getJavaHome());
+        addJavaHomeCandidate(javaHomes, System.getenv("JAVA_HOME"));
+        addJavaHomeCandidate(javaHomes, System.getProperty("java.home"));
+
+        String javaCommand = isWindows() ? "java.exe" : "java";
+        for (File javaHomeDir : javaHomes) {
+            File binCandidate = new File(javaHomeDir, "bin" + File.separator + javaCommand);
+            if (binCandidate.isFile()) {
+                return binCandidate;
+            }
+            File directCandidate = new File(javaHomeDir, javaCommand);
+            if (directCandidate.isFile()) {
+                return directCandidate;
+            }
+        }
+
+        throw new GradleException(
+                "Java executable not found. Configure blackObfuscator.javaExecutable, " +
+                        "blackObfuscator.javaHome or blackObfuscator.dptJavaExecutable."
+        );
+    }
+
+    private void addJavaHomeCandidate(List<File> candidates, String rawPath) {
+        if (rawPath == null) {
+            return;
+        }
+        String trimmed = rawPath.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+        candidates.add(getProject().file(trimmed));
     }
 
     public void setExtension(BlackObfuscatorExtension extension) {

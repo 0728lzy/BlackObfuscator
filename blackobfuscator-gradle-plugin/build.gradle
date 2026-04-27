@@ -2,14 +2,18 @@ buildscript {
   repositories {
     gradlePluginPortal()
   }
-  dependencies {
-    classpath 'com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:2.1.1'
+  if (GradleVersion.current() >= GradleVersion.version('7.4')) {
+    dependencies {
+      classpath 'com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:2.1.1'
+    }
   }
 }
 
 apply plugin: 'java-gradle-plugin'
 apply plugin: 'maven-publish'
-apply plugin: 'com.gradle.plugin-publish'
+if (GradleVersion.current() >= GradleVersion.version('7.4')) {
+  apply plugin: 'com.gradle.plugin-publish'
+}
 
 group = 'zym.top.blackobfuscator'
 description = 'BlackObfuscator Gradle plugin for Android APK post-processing'

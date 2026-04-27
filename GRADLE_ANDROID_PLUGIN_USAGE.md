@@ -36,7 +36,7 @@ If your plugin artifact is hosted in a private Maven repository, replace `mavenL
 ```groovy
 plugins {
     id 'com.android.application'
-    id 'zym.top.blackobfuscator' version '1.0.5'
+    id 'zym.top.blackobfuscator' version '1.0.6'
 }
 ```
 
@@ -52,7 +52,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.5"
+        classpath "zym.top.blackobfuscator:blackobfuscator-gradle-plugin:1.0.6"
     }
 }
 ```
@@ -93,6 +93,9 @@ blackObfuscator {
     variants = ["release"]
     outputSuffix = "-blackobf"
     deleteOriginalApk = false
+    dptEnabled = true
+    dptJar = file("tools/dpt.jar")
+    dptExcludeAbi = "x86,x86_64"
 }
 ```
 
@@ -108,3 +111,29 @@ blackObfuscator {
 - build-tools containing `zipalign` and `apksigner`
 - Android variant must have a valid `signingConfig`
 - configure exactly one of `packageName` or `rulesFile`
+
+## Optional DPT shelling
+
+If you also want a DPT shell step after dex obfuscation, enable it in the same block:
+
+```groovy
+blackObfuscator {
+    packageName = "com.example.app"
+    dptEnabled = true
+    dptJar = file("tools/dpt.jar")
+    dptExcludeAbi = "x86,x86_64"
+    // optional:
+    // dptRulesFile = file("tools/dpt-rules.txt")
+    // dptProtectConfig = file("tools/dpt-protect.json")
+    // javaExecutable = "C:/Program Files/Java/jdk-17/bin/java.exe"
+    // dptJavaExecutable = "C:/Program Files/Java/jdk-17/bin/java.exe"
+}
+```
+
+When `dptEnabled = true`, the task flow becomes:
+
+1. build and locate the variant APK
+2. obfuscate `classes*.dex`
+3. repackage, `zipalign`, and sign the APK
+4. run DPT shelling on the signed APK
+5. `zipalign` and re-sign the DPT output
